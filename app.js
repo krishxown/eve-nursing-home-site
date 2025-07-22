@@ -1,599 +1,455 @@
-// DOM Content Loaded
-document.addEventListener('DOMContentLoaded', function() {
+// Multi-page navigation system
+class MultiPageApp {
+  constructor() {
+    this.currentSection = 'home';
+    this.sections = document.querySelectorAll('.section');
+    this.navLinks = document.querySelectorAll('.nav-link');
+    this.navToggle = document.getElementById('nav-toggle');
+    this.navMenu = document.getElementById('nav-menu');
+    this.testimonialSlider = null;
     
-    // Mobile Menu Toggle
-    const mobileMenuToggle = document.getElementById('mobileMenuToggle');
-    const navigation = document.getElementById('navigation');
+    this.init();
+  }
+
+  init() {
+    // Initialize sections first
+    this.initializeSections();
     
-    if (mobileMenuToggle && navigation) {
-        mobileMenuToggle.addEventListener('click', function() {
-            navigation.classList.toggle('active');
-            
-            // Animate hamburger menu
-            const spans = mobileMenuToggle.querySelectorAll('span');
-            if (navigation.classList.contains('active')) {
-                spans[0].style.transform = 'rotate(45deg) translate(5px, 5px)';
-                spans[1].style.opacity = '0';
-                spans[2].style.transform = 'rotate(-45deg) translate(7px, -6px)';
-            } else {
-                spans[0].style.transform = 'none';
-                spans[1].style.opacity = '1';
-                spans[2].style.transform = 'none';
-            }
-        });
+    // Setup navigation
+    this.setupNavigation();
+    this.setupMobileNav();
+    this.setupContactForm();
+    
+    // Initialize testimonial slider
+    this.testimonialSlider = new TestimonialSlider();
+    
+    // Handle initial load
+    this.handleInitialLoad();
+  }
 
-        // Close mobile menu when clicking outside
-        document.addEventListener('click', function(event) {
-            if (!navigation.contains(event.target) && !mobileMenuToggle.contains(event.target)) {
-                navigation.classList.remove('active');
-                const spans = mobileMenuToggle.querySelectorAll('span');
-                spans[0].style.transform = 'none';
-                spans[1].style.opacity = '1';
-                spans[2].style.transform = 'none';
-            }
-        });
-    }
+  initializeSections() {
+    // Hide all sections except home
+    this.sections.forEach((section, index) => {
+      if (section.id === 'home') {
+        section.classList.add('active');
+        section.style.display = 'block';
+      } else {
+        section.classList.remove('active');
+        section.style.display = 'none';
+      }
+    });
+  }
 
-    // Smooth Scrolling for Navigation Links
-    function smoothScrollToSection(targetId) {
-        const targetSection = document.querySelector(targetId);
-        if (targetSection) {
-            const headerHeight = document.querySelector('.header')?.offsetHeight || 0;
-            const emergencyBannerHeight = document.querySelector('.emergency-banner')?.offsetHeight || 0;
-            const offsetTop = targetSection.offsetTop - headerHeight - emergencyBannerHeight - 20;
-            
-            window.scrollTo({
-                top: offsetTop,
-                behavior: 'smooth'
-            });
-
-            // Close mobile menu after clicking
-            if (navigation) {
-                navigation.classList.remove('active');
-                if (mobileMenuToggle) {
-                    const spans = mobileMenuToggle.querySelectorAll('span');
-                    spans[0].style.transform = 'none';
-                    spans[1].style.opacity = '1';
-                    spans[2].style.transform = 'none';
-                }
-            }
-        }
-    }
-
-    // Handle all navigation and CTA links
-    const allLinks = document.querySelectorAll('a[href^="#"]');
-    allLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            const targetId = this.getAttribute('href');
-            if (targetId && targetId !== '#') {
-                smoothScrollToSection(targetId);
-            }
-        });
+  setupNavigation() {
+    // Handle nav link clicks
+    this.navLinks.forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const targetSection = link.getAttribute('href').substring(1);
+        this.showSection(targetSection);
+        this.updateActiveNav(link);
+        this.closeMobileNav();
+      });
     });
 
-    // Handle phone call links
-    const phoneLinks = document.querySelectorAll('a[href^="tel:"]');
-    phoneLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
-            // Let the phone link work naturally, but track the event
-            console.log('Phone call initiated:', this.href);
-        });
+    // Handle hash changes
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash.substring(1) || 'home';
+      this.showSection(hash);
+      this.updateActiveNavFromHash(hash);
+    });
+  }
+
+  setupMobileNav() {
+    if (this.navToggle) {
+      this.navToggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.toggleMobileNav();
+      });
+    }
+
+    // Close mobile nav when clicking outside
+    document.addEventListener('click', (e) => {
+      if (this.navToggle && this.navMenu && 
+          !this.navToggle.contains(e.target) && 
+          !this.navMenu.contains(e.target)) {
+        this.closeMobileNav();
+      }
+    });
+  }
+
+  toggleMobileNav() {
+    if (this.navMenu) {
+      this.navMenu.classList.toggle('open');
+    }
+    if (this.navToggle) {
+      this.navToggle.classList.toggle('active');
+      // Update aria-expanded
+      const isOpen = this.navMenu.classList.contains('open');
+      this.navToggle.setAttribute('aria-expanded', isOpen.toString());
+    }
+  }
+
+  closeMobileNav() {
+    if (this.navMenu) {
+      this.navMenu.classList.remove('open');
+    }
+    if (this.navToggle) {
+      this.navToggle.classList.remove('active');
+      this.navToggle.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  showSection(sectionId) {
+    // Hide all sections
+    this.sections.forEach(section => {
+      section.classList.remove('active');
+      section.style.display = 'none';
     });
 
-    // Active Navigation Link Highlighting
-    function updateActiveNavLink() {
-        const sections = document.querySelectorAll('section[id]');
-        const navLinks = document.querySelectorAll('.nav-link');
-        const headerHeight = document.querySelector('.header')?.offsetHeight || 0;
-        const emergencyBannerHeight = document.querySelector('.emergency-banner')?.offsetHeight || 0;
-        const scrollPosition = window.scrollY + headerHeight + emergencyBannerHeight + 100;
-
-        sections.forEach(section => {
-            const sectionTop = section.offsetTop;
-            const sectionHeight = section.offsetHeight;
-            const sectionId = section.getAttribute('id');
-            const navLink = document.querySelector(`.nav-link[href="#${sectionId}"]`);
-
-            if (navLink) {
-                if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
-                    navLinks.forEach(link => link.classList.remove('active'));
-                    navLink.classList.add('active');
-                }
-            }
-        });
+    // Show target section
+    const targetSection = document.getElementById(sectionId);
+    if (targetSection) {
+      targetSection.classList.add('active');
+      targetSection.style.display = 'block';
+      this.currentSection = sectionId;
+      
+      // Update URL without triggering hashchange
+      if (history.pushState) {
+        history.pushState(null, null, `#${sectionId}`);
+      } else {
+        window.location.hash = sectionId;
+      }
+      
+      // Scroll to top
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+      // Update page title
+      this.updatePageTitle(sectionId);
     }
+  }
 
-    // Scroll event listener with throttling
-    let scrollTimer = null;
-    window.addEventListener('scroll', function() {
-        if (scrollTimer) {
-            clearTimeout(scrollTimer);
-        }
-        scrollTimer = setTimeout(() => {
-            updateActiveNavLink();
-            toggleBackToTopButton();
-        }, 10);
+  updateActiveNav(activeLink) {
+    this.navLinks.forEach(link => {
+      link.classList.remove('active');
     });
-
-    // Testimonials Carousel
-    const testimonialSlides = document.querySelectorAll('.testimonial-slide');
-    const testimonialIndicators = document.querySelectorAll('.indicator');
-    const prevButton = document.getElementById('prevTestimonial');
-    const nextButton = document.getElementById('nextTestimonial');
-    let currentSlide = 0;
-    let testimonialInterval;
-
-    function showTestimonialSlide(index) {
-        if (testimonialSlides.length === 0) return;
-        
-        testimonialSlides.forEach(slide => slide.classList.remove('active'));
-        testimonialIndicators.forEach(indicator => indicator.classList.remove('active'));
-        
-        if (testimonialSlides[index]) {
-            testimonialSlides[index].classList.add('active');
-        }
-        if (testimonialIndicators[index]) {
-            testimonialIndicators[index].classList.add('active');
-        }
-        currentSlide = index;
+    if (activeLink) {
+      activeLink.classList.add('active');
     }
+  }
 
-    function nextTestimonial() {
-        const nextIndex = (currentSlide + 1) % testimonialSlides.length;
-        showTestimonialSlide(nextIndex);
-    }
-
-    function prevTestimonial() {
-        const prevIndex = (currentSlide - 1 + testimonialSlides.length) % testimonialSlides.length;
-        showTestimonialSlide(prevIndex);
-    }
-
-    function startTestimonialAutoplay() {
-        if (testimonialSlides.length > 1) {
-            testimonialInterval = setInterval(nextTestimonial, 5000);
-        }
-    }
-
-    function stopTestimonialAutoplay() {
-        if (testimonialInterval) {
-            clearInterval(testimonialInterval);
-        }
-    }
-
-    // Event listeners for testimonial controls
-    if (nextButton) {
-        nextButton.addEventListener('click', () => {
-            nextTestimonial();
-            stopTestimonialAutoplay();
-            startTestimonialAutoplay();
-        });
-    }
-
-    if (prevButton) {
-        prevButton.addEventListener('click', () => {
-            prevTestimonial();
-            stopTestimonialAutoplay();
-            startTestimonialAutoplay();
-        });
-    }
-
-    testimonialIndicators.forEach((indicator, index) => {
-        indicator.addEventListener('click', () => {
-            showTestimonialSlide(index);
-            stopTestimonialAutoplay();
-            startTestimonialAutoplay();
-        });
+  updateActiveNavFromHash(hash) {
+    this.navLinks.forEach(link => {
+      link.classList.remove('active');
+      if (link.getAttribute('href') === `#${hash}`) {
+        link.classList.add('active');
+      }
     });
+  }
 
-    // Start testimonial autoplay
-    if (testimonialSlides.length > 0) {
-        startTestimonialAutoplay();
+  updatePageTitle(sectionId) {
+    const titles = {
+      'home': 'EVE\'S CLINIC - Premier Healthcare in Dum Dum, Kolkata',
+      'about': 'About Us - EVE\'S CLINIC',
+      'doctors': 'Our Doctors - EVE\'S CLINIC',
+      'services': 'Medical Services - EVE\'S CLINIC',
+      'facilities': 'Our Facilities - EVE\'S CLINIC',
+      'careers': 'Careers - EVE\'S CLINIC',
+      'contact': 'Contact Us - EVE\'S CLINIC',
+      'admin': 'Administration - EVE\'S CLINIC'
+    };
+    document.title = titles[sectionId] || titles['home'];
+  }
 
-        // Pause autoplay when hovering over testimonials
-        const testimonialCarousel = document.querySelector('.testimonials-carousel');
-        if (testimonialCarousel) {
-            testimonialCarousel.addEventListener('mouseenter', stopTestimonialAutoplay);
-            testimonialCarousel.addEventListener('mouseleave', startTestimonialAutoplay);
-        }
-    }
+  handleInitialLoad() {
+    const hash = window.location.hash.substring(1) || 'home';
+    this.showSection(hash);
+    this.updateActiveNavFromHash(hash);
+  }
 
-    // Form Validation
-    function validateEmail(email) {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    }
-
-    function validatePhone(phone) {
-        const phoneRegex = /^[0-9]{10}$/;
-        return phoneRegex.test(phone.replace(/\s/g, ''));
-    }
-
-    function showError(input, message) {
-        const formGroup = input.parentElement;
-        const errorDiv = formGroup.querySelector('.error-message');
-        
-        input.classList.add('error');
-        input.classList.remove('success');
-        if (errorDiv) {
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-        }
-    }
-
-    function showSuccess(input) {
-        const formGroup = input.parentElement;
-        const errorDiv = formGroup.querySelector('.error-message');
-        
-        input.classList.remove('error');
-        input.classList.add('success');
-        if (errorDiv) {
-            errorDiv.style.display = 'none';
-        }
-    }
-
-    function validateInput(input) {
-        const value = input.value.trim();
-        const name = input.name;
-        let isValid = true;
-
-        switch (name) {
-            case 'fullName':
-            case 'name':
-                if (value.length < 2) {
-                    showError(input, 'Name must be at least 2 characters long');
-                    isValid = false;
-                } else if (!/^[a-zA-Z\s]+$/.test(value)) {
-                    showError(input, 'Name should only contain letters and spaces');
-                    isValid = false;
-                } else {
-                    showSuccess(input);
-                }
-                break;
-
-            case 'age':
-                if (value === '' || value < 1 || value > 120) {
-                    showError(input, 'Please enter a valid age between 1-120');
-                    isValid = false;
-                } else {
-                    showSuccess(input);
-                }
-                break;
-
-            case 'phone':
-                if (!validatePhone(value)) {
-                    showError(input, 'Please enter a valid 10-digit phone number');
-                    isValid = false;
-                } else {
-                    showSuccess(input);
-                }
-                break;
-
-            case 'email':
-                if (value && !validateEmail(value)) {
-                    showError(input, 'Please enter a valid email address');
-                    isValid = false;
-                } else {
-                    showSuccess(input);
-                }
-                break;
-
-            case 'doctor':
-                if (!value) {
-                    showError(input, 'Please select a doctor');
-                    isValid = false;
-                } else {
-                    showSuccess(input);
-                }
-                break;
-
-            case 'appointmentDate':
-                const selectedDate = new Date(value);
-                const today = new Date();
-                today.setHours(0, 0, 0, 0);
-                
-                if (!value) {
-                    showError(input, 'Please select an appointment date');
-                    isValid = false;
-                } else if (selectedDate < today) {
-                    showError(input, 'Please select a future date');
-                    isValid = false;
-                } else {
-                    showSuccess(input);
-                }
-                break;
-
-            case 'terms':
-                if (!input.checked) {
-                    showError(input, 'Please accept the terms and conditions');
-                    isValid = false;
-                } else {
-                    showSuccess(input);
-                }
-                break;
-
-            case 'message':
-                if (value.length < 10) {
-                    showError(input, 'Message must be at least 10 characters long');
-                    isValid = false;
-                } else {
-                    showSuccess(input);
-                }
-                break;
-
-            default:
-                if (input.required && !value) {
-                    showError(input, 'This field is required');
-                    isValid = false;
-                } else if (value) {
-                    showSuccess(input);
-                }
-        }
-
-        return isValid;
-    }
-
-    // Real-time validation for appointment form
-    const appointmentForm = document.getElementById('appointmentForm');
-    if (appointmentForm) {
-        const appointmentInputs = appointmentForm.querySelectorAll('input, select, textarea');
-        
-        appointmentInputs.forEach(input => {
-            input.addEventListener('blur', () => validateInput(input));
-            input.addEventListener('input', () => {
-                if (input.classList.contains('error')) {
-                    validateInput(input);
-                }
-            });
-        });
-
-        // Set minimum date to today
-        const dateInput = appointmentForm.querySelector('input[name="appointmentDate"]');
-        if (dateInput) {
-            const today = new Date().toISOString().split('T')[0];
-            dateInput.setAttribute('min', today);
-        }
-
-        appointmentForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            let isFormValid = true;
-            appointmentInputs.forEach(input => {
-                if (!validateInput(input)) {
-                    isFormValid = false;
-                }
-            });
-
-            if (isFormValid) {
-                // Show loading state
-                const submitButton = appointmentForm.querySelector('button[type="submit"]');
-                const originalText = submitButton.innerHTML;
-                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Booking Appointment...';
-                submitButton.disabled = true;
-                appointmentForm.classList.add('loading');
-
-                // Simulate form submission
-                setTimeout(() => {
-                    // Show success message
-                    showSuccessMessage('appointment', 'Appointment booked successfully! We will contact you shortly to confirm the details.');
-                    
-                    // Reset form
-                    appointmentForm.reset();
-                    appointmentInputs.forEach(input => {
-                        input.classList.remove('error', 'success');
-                        const errorDiv = input.parentElement.querySelector('.error-message');
-                        if (errorDiv) {
-                            errorDiv.style.display = 'none';
-                        }
-                    });
-                    
-                    // Reset button
-                    submitButton.innerHTML = originalText;
-                    submitButton.disabled = false;
-                    appointmentForm.classList.remove('loading');
-                }, 2000);
-            } else {
-                // Scroll to first error
-                const firstError = appointmentForm.querySelector('.error');
-                if (firstError) {
-                    firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    firstError.focus();
-                }
-            }
-        });
-    }
-
-    // Contact form validation and submission
-    const contactForm = document.getElementById('contactForm');
+  setupContactForm() {
+    const contactForm = document.getElementById('contact-form');
     if (contactForm) {
-        const contactInputs = contactForm.querySelectorAll('input, textarea');
-        
-        contactInputs.forEach(input => {
-            input.addEventListener('blur', () => validateInput(input));
-            input.addEventListener('input', () => {
-                if (input.classList.contains('error')) {
-                    validateInput(input);
-                }
-            });
-        });
-
-        contactForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            let isFormValid = true;
-            contactInputs.forEach(input => {
-                if (!validateInput(input)) {
-                    isFormValid = false;
-                }
-            });
-
-            if (isFormValid) {
-                // Show loading state
-                const submitButton = contactForm.querySelector('button[type="submit"]');
-                const originalText = submitButton.textContent;
-                submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Sending...';
-                submitButton.disabled = true;
-                contactForm.classList.add('loading');
-
-                // Simulate form submission
-                setTimeout(() => {
-                    // Show success message
-                    showSuccessMessage('contact', 'Message sent successfully! We will get back to you soon.');
-                    
-                    // Reset form
-                    contactForm.reset();
-                    contactInputs.forEach(input => {
-                        input.classList.remove('error', 'success');
-                        const errorDiv = input.parentElement.querySelector('.error-message');
-                        if (errorDiv) {
-                            errorDiv.style.display = 'none';
-                        }
-                    });
-                    
-                    // Reset button
-                    submitButton.textContent = originalText;
-                    submitButton.disabled = false;
-                    contactForm.classList.remove('loading');
-                }, 1500);
-            }
-        });
+      contactForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        this.handleFormSubmission(contactForm);
+      });
     }
+  }
 
-    function showSuccessMessage(formType, message) {
-        // Remove existing success messages
-        const existingMessages = document.querySelectorAll('.success-message');
-        existingMessages.forEach(msg => msg.remove());
-
-        // Create and show new success message
-        const successDiv = document.createElement('div');
-        successDiv.className = 'success-message show';
-        successDiv.innerHTML = `<i class="fas fa-check-circle"></i> ${message}`;
-        
-        const form = formType === 'appointment' ? appointmentForm : contactForm;
-        if (form) {
-            form.appendChild(successDiv);
-
-            // Auto-hide success message after 5 seconds
-            setTimeout(() => {
-                successDiv.classList.remove('show');
-                setTimeout(() => successDiv.remove(), 300);
-            }, 5000);
-        }
-    }
-
-    // Back to Top Button
-    const backToTopButton = document.getElementById('backToTop');
+  handleFormSubmission(form) {
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
     
-    function toggleBackToTopButton() {
-        if (backToTopButton) {
-            if (window.scrollY > 300) {
-                backToTopButton.classList.add('visible');
-            } else {
-                backToTopButton.classList.remove('visible');
-            }
-        }
+    // Basic validation
+    if (!data.name || !data.phone || !data.email || !data.department) {
+      alert('Please fill in all required fields.');
+      return;
     }
 
-    if (backToTopButton) {
-        backToTopButton.addEventListener('click', function(e) {
-            e.preventDefault();
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
-            });
-        });
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(data.email)) {
+      alert('Please enter a valid email address.');
+      return;
     }
 
-    // Handle phone number formatting
-    const phoneInputs = document.querySelectorAll('input[type="tel"]');
-    phoneInputs.forEach(input => {
-        input.addEventListener('input', function(e) {
-            // Remove all non-numeric characters
-            let value = e.target.value.replace(/\D/g, '');
-            
-            // Limit to 10 digits
-            if (value.length > 10) {
-                value = value.slice(0, 10);
-            }
-            
-            e.target.value = value;
-        });
-    });
-
-    // Handle accessibility improvements
-    function improveAccessibility() {
-        // Add ARIA labels to buttons without text
-        const iconButtons = document.querySelectorAll('button:not([aria-label])');
-        iconButtons.forEach(button => {
-            if (button.querySelector('i') && !button.textContent.trim()) {
-                const icon = button.querySelector('i');
-                if (icon.classList.contains('fa-chevron-up')) {
-                    button.setAttribute('aria-label', 'Back to top');
-                } else if (icon.classList.contains('fa-chevron-left')) {
-                    button.setAttribute('aria-label', 'Previous testimonial');
-                } else if (icon.classList.contains('fa-chevron-right')) {
-                    button.setAttribute('aria-label', 'Next testimonial');
-                }
-            }
-        });
+    // Phone validation
+    const phoneRegex = /^[\+]?[0-9\s\-\(\)]{10,15}$/;
+    if (!phoneRegex.test(data.phone)) {
+      alert('Please enter a valid phone number.');
+      return;
     }
 
-    improveAccessibility();
+    // Simulate form submission
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Submitting...';
+    submitBtn.disabled = true;
 
-    // Service cards and doctor cards hover effects
-    const interactiveCards = document.querySelectorAll('.service-card, .doctor-card');
-    interactiveCards.forEach(card => {
-        card.addEventListener('mouseenter', function() {
-            if (this.classList.contains('service-card')) {
-                this.style.transform = 'translateY(-4px)';
-            } else {
-                this.style.transform = 'translateY(-2px)';
-            }
-        });
-        
-        card.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0)';
-        });
-    });
+    setTimeout(() => {
+      alert(`Thank you ${data.name}! Your appointment request has been submitted. We will contact you shortly at ${data.phone}.`);
+      form.reset();
+      submitBtn.textContent = originalText;
+      submitBtn.disabled = false;
+    }, 2000);
+  }
+}
 
-    // WhatsApp button click tracking
-    const whatsappButton = document.querySelector('.whatsapp-chat');
-    if (whatsappButton) {
-        whatsappButton.addEventListener('click', function() {
-            // Track WhatsApp clicks (for analytics)
-            console.log('WhatsApp chat initiated');
-        });
-    }
-
-    // Smooth reveal animations on scroll
-    function revealOnScroll() {
-        const reveals = document.querySelectorAll('.service-card, .doctor-card, .feature');
-        
-        reveals.forEach(element => {
-            const elementTop = element.getBoundingClientRect().top;
-            const elementVisible = 150;
-            
-            if (elementTop < window.innerHeight - elementVisible) {
-                element.style.opacity = '1';
-                element.style.transform = 'translateY(0)';
-            }
-        });
-    }
-
-    // Initialize reveal animation styles
-    const revealElements = document.querySelectorAll('.service-card, .doctor-card, .feature');
-    revealElements.forEach(element => {
-        element.style.opacity = '0';
-        element.style.transform = 'translateY(20px)';
-        element.style.transition = 'all 0.6s ease';
-    });
-
-    window.addEventListener('scroll', revealOnScroll);
-    revealOnScroll(); // Run once on load
-
-    // Initialize the page
-    updateActiveNavLink();
-    toggleBackToTopButton();
+// Testimonial Slider
+class TestimonialSlider {
+  constructor() {
+    this.slider = document.getElementById('testimonials-slider');
+    this.testimonials = document.querySelectorAll('.testimonial');
+    this.controls = document.querySelectorAll('.testimonial-btn');
+    this.currentSlide = 0;
+    this.autoPlayInterval = null;
+    this.autoPlayDelay = 4000; // 4 seconds
     
-    console.log('Eve\'s Nursing Home website initialized successfully!');
+    this.init();
+  }
+
+  init() {
+    if (this.testimonials.length > 0) {
+      this.setupControls();
+      this.startAutoPlay();
+      this.setupMouseEvents();
+      
+      // Initialize first slide
+      this.goToSlide(0);
+    }
+  }
+
+  setupControls() {
+    this.controls.forEach((btn, index) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.goToSlide(index);
+        this.resetAutoPlay();
+      });
+    });
+  }
+
+  goToSlide(index) {
+    if (index < 0 || index >= this.testimonials.length) return;
+    
+    // Hide all testimonials
+    this.testimonials.forEach(testimonial => {
+      testimonial.classList.remove('active');
+    });
+
+    // Remove active from all controls
+    this.controls.forEach(btn => {
+      btn.classList.remove('active');
+    });
+
+    // Show target testimonial
+    this.testimonials[index].classList.add('active');
+    if (this.controls[index]) {
+      this.controls[index].classList.add('active');
+    }
+    
+    this.currentSlide = index;
+  }
+
+  nextSlide() {
+    const nextIndex = (this.currentSlide + 1) % this.testimonials.length;
+    this.goToSlide(nextIndex);
+  }
+
+  startAutoPlay() {
+    if (this.autoPlayInterval) {
+      clearInterval(this.autoPlayInterval);
+    }
+    
+    this.autoPlayInterval = setInterval(() => {
+      this.nextSlide();
+    }, this.autoPlayDelay);
+  }
+
+  stopAutoPlay() {
+    if (this.autoPlayInterval) {
+      clearInterval(this.autoPlayInterval);
+      this.autoPlayInterval = null;
+    }
+  }
+
+  resetAutoPlay() {
+    this.stopAutoPlay();
+    this.startAutoPlay();
+  }
+
+  setupMouseEvents() {
+    if (this.slider) {
+      this.slider.addEventListener('mouseenter', () => {
+        this.stopAutoPlay();
+      });
+
+      this.slider.addEventListener('mouseleave', () => {
+        this.startAutoPlay();
+      });
+    }
+  }
+}
+
+// Button handlers
+function setupButtonHandlers() {
+  // Handle emergency call buttons
+  document.querySelectorAll('a[href^="tel:"]').forEach(link => {
+    link.addEventListener('click', (e) => {
+      // Allow default behavior for tel: links
+      console.log('Emergency call initiated:', link.href);
+    });
+  });
+
+  // Handle WhatsApp links
+  document.querySelectorAll('a[href^="https://wa.me/"]').forEach(link => {
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+    
+    link.addEventListener('click', (e) => {
+      // Allow default behavior but log for tracking
+      console.log('WhatsApp link clicked:', link.href);
+    });
+  });
+
+  // Handle appointment booking buttons
+  document.querySelectorAll('.btn').forEach(btn => {
+    if (btn.href && btn.href.includes('#contact')) {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        // Navigate to contact section
+        window.multiPageApp.showSection('contact');
+        window.multiPageApp.updateActiveNavFromHash('contact');
+        
+        // Focus on the form after navigation
+        setTimeout(() => {
+          const contactForm = document.getElementById('contact-form');
+          if (contactForm) {
+            contactForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const firstInput = contactForm.querySelector('input');
+            if (firstInput) {
+              firstInput.focus();
+            }
+          }
+        }, 100);
+      });
+    }
+  });
+}
+
+// Header scroll effect
+class HeaderEffect {
+  constructor() {
+    this.header = document.getElementById('header');
+    this.init();
+  }
+
+  init() {
+    if (!this.header) return;
+    
+    window.addEventListener('scroll', this.throttle(() => {
+      this.handleScroll();
+    }, 100));
+  }
+
+  handleScroll() {
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    
+    if (scrollTop > 100) {
+      this.header.classList.add('scrolled');
+    } else {
+      this.header.classList.remove('scrolled');
+    }
+  }
+
+  throttle(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+}
+
+// Accessibility enhancements
+function setupAccessibility() {
+  // Handle keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    // Escape key closes mobile nav
+    if (e.key === 'Escape') {
+      const navMenu = document.getElementById('nav-menu');
+      const navToggle = document.getElementById('nav-toggle');
+      if (navMenu && navMenu.classList.contains('open')) {
+        navMenu.classList.remove('open');
+        if (navToggle) {
+          navToggle.classList.remove('active');
+          navToggle.setAttribute('aria-expanded', 'false');
+        }
+      }
+    }
+  });
+
+  // Setup ARIA labels
+  const navToggle = document.getElementById('nav-toggle');
+  if (navToggle) {
+    navToggle.setAttribute('aria-label', 'Toggle navigation menu');
+    navToggle.setAttribute('aria-expanded', 'false');
+  }
+
+  const testimonialBtns = document.querySelectorAll('.testimonial-btn');
+  testimonialBtns.forEach((btn, index) => {
+    btn.setAttribute('aria-label', `Go to testimonial ${index + 1}`);
+  });
+}
+
+// Initialize application
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    // Initialize main app
+    window.multiPageApp = new MultiPageApp();
+    
+    // Initialize other components
+    const headerEffect = new HeaderEffect();
+    
+    // Setup button handlers
+    setupButtonHandlers();
+    
+    // Setup accessibility
+    setupAccessibility();
+    
+    console.log('EVE\'S CLINIC website initialized successfully');
+    
+    // Debug info
+    console.log('Sections found:', document.querySelectorAll('.section').length);
+    console.log('Nav links found:', document.querySelectorAll('.nav-link').length);
+    console.log('Testimonials found:', document.querySelectorAll('.testimonial').length);
+    
+  } catch (error) {
+    console.error('Error initializing application:', error);
+  }
 });
